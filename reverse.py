@@ -86,7 +86,13 @@ class SenderHandler:
             # self.regist_sender()
 
     def unregist_sock(self, sock):
-        fn = sock.fileno()
+        if PY == 2:
+            try:
+                fn = sock.fileno()
+            except socket.error:
+                fn = -1
+        else:
+            fn = sock.fileno()
         if fn != -1:
             del self._now_handle_socks[fn]
             # self.unregist_sender()
