@@ -144,7 +144,7 @@ class SenderHandler:
         """if sock != self.lsock and self.lsock:
             self.lsock.close()
             self.unregist_sock(self.lsock)"""
-        if sock != self.lsock and self.lsock:
+        if hasattr(self,'lsock') and sock != self.lsock and self.lsock:
             self.lsock.close()
             self.unregist_sock(self.lsock)
         #else:
