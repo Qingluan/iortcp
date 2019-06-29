@@ -29,10 +29,7 @@ def create_server(port):
     sock = socket.socket(AF_INET, SOCK_STREAM)
     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     #sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
-    if PL == 'win':
-        sock.bind(('localhost',port))
-    else:
-        sock.bind(('',port))
+    sock.bind(('',port))
     sock.listen(15)
     while 1:
         s,_ = sock.accept()
@@ -394,7 +391,7 @@ class WaiterHandler(SenderHandler):
         # sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         sock.setblocking(False)
         if PL == "win":
-            sock.bind(('localhost',port))
+            sock.bind(('0.0.0.0',port))
         else:
             sock.bind(('',port))
         sock.listen(1024)
