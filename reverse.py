@@ -28,7 +28,7 @@ def create_server(port):
     sock = socket.socket(AF_INET, SOCK_STREAM)
     sock.bind(('',port))
     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
+    #sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
     sock.listen(15)
     while 1:
         s,_ = sock.accept()
@@ -400,7 +400,7 @@ def ConnectServer(lport, rport):
             ic +=1
             R.handle()
     except Exception as e:
-        traceback.print_stack()
+        print(e)
             
         # log("Rebuild server: %d"  % ic, end='\r')
         
@@ -413,13 +413,13 @@ def StartServer(addr, laddr):
         try:
             w = SenderHandler(addr=addr, laddr=laddr)
             # w.handle_build_more(REVERSE_OP)
-            conn_err = 0
+            conn_err_t = 0
         except ConnectionRefusedError as e:
             log("[406] %s"% str(e))
             ic += 1
             log("con : error try again : %d" % ic , end='\r')
             time.sleep(1 + conn_err_t % 30)
-            conn_err += 1
+            conn_err_t += 1
             continue
         try:
             ccc = 0
