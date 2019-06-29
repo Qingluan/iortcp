@@ -9,6 +9,7 @@ import argparse
 from hshadow.server import main
 from hshadow.local import main as mainc
 from hshadow.tunnel import main as maint
+from multiprocessing import Process
 # import pdb
 PY = int(sys.version[0])
 PL= sys.platform[:3]
@@ -103,7 +104,7 @@ class SenderHandler:
     def clean(self):
         ks = [k for k,v in self._now_handle_socks.items() if v.fileno() == -1]
         for k in ks:
-            log('close: %d' % k)
+            log('[-%d]' % k,end='\r')
             del self._now_handle_socks[k]
 
     def handle(self):
@@ -169,16 +170,16 @@ class SenderHandler:
         try:
             d = sock.recv(9216)
         except OSError:
-            log("conn , break", end='\r')
+            log("[x ]  conn , break", end='\r')
             self.handle_error(sock)
             return
         if not d:
-            log(".     no data , break", end='\r')
+            log("[x ]  no data , break", end='\r')
             self.handle_error(sock)
             return
         if sock == self.sock:
             if REVERSE_OP in d:
-                #log("from : %s " %(self.addr))
+                log("                        !!!solder +1",end='\r')
                 d = self.handle_build_more(d)
                 #import pdb;pdb.set_trace()
                 if not d:
@@ -217,18 +218,18 @@ class SenderHandler:
                     dirty = True
             
         except BrokenPipeError as e:
-            log("socks break ! . reset")
+            log("[r ]   socks break ! . reset", end='\r')
             self.handle_error(sock)
             dirty = False
         except socket.error as e:
             if e.errno == socket.errno.EBADF:
-                log("socks break ! . reset")
+                log("[r ] socks break ! . reset", end='\r')
             else:
-                log("sockset: %s " % e)
+                log("[e ] sockset: %s " % e)
             self.handle_error(sock)
             dirty = False
         except Exception as e:
-            log("0999")
+            log("fuck :%s" % str(e))
 
 
         #if dirty:
@@ -302,6 +303,13 @@ class WaiterHandler(SenderHandler):
 
     def handle(self):
         all_socks = self._now_handle_socks.values()
+        must_r = len(self.recv_list)
+        if must_r and must_r < 2 and self._runing_handlers:
+            log("[+1]", end='\r')
+            h = self._runing_handlers[0]
+            h.to_ldata += REVERSE_OP
+            h.handle_write(h.lsock)
+
         # log(".")
         if len(all_socks) > 0:
             rl,_, _ = select.select( all_socks,[], [], 0.02)
@@ -321,7 +329,7 @@ class WaiterHandler(SenderHandler):
         listen_list = self.listen_list
         rcv_num = len(recv_list)
         lit_num = len(listen_list)
-        log("listen: %d / revesr: %d "%(lit_num, rcv_num),end='\r')
+        log("[  ] listen: %d / revesr: %d "%(lit_num, rcv_num),end='\r')
         need_conn_num = 0
         if  rcv_num>0  or  lit_num>0:
             need_conn_num =  lit_num - rcv_num
@@ -342,7 +350,7 @@ class WaiterHandler(SenderHandler):
                 # bc += 1
                 hand.handle()
                 if hand.reset:
-                    log("connection break %r" % hand)
+                    #log("connection break %r" % hand)
                     un_r.append(hand)
             except socket.error as e:
                 if socket.errno.EBADF != e.errno:
@@ -355,7 +363,7 @@ class WaiterHandler(SenderHandler):
             self._runing_handlers.remove(u)
 
         if need_conn_num > 0 and len(self._runing_handlers) > 0:
-            #log("send cmd to create more conec", end='\r')
+            log("send cmd to create more conec", end='\r')
             h = self._runing_handlers[0]
             h.to_ldata += REVERSE_OP
             h.handle_write(h.lsock)
@@ -466,6 +474,7 @@ def get_config():
     parser.add_argument('-p', '--port', default=14333,type=int, help='set ss port')
     parser.add_argument('-lp', '--local-port', default=8433,type=int, help='set ss client local listen port only for -C client mode')
     parser.add_argument('-s', '--server', default='0.0.0.0',type=str, help='set ss address')
+    parser.add_argument('-M', '--build-net', default=False, action='store_true', help='build a ss server and map server port to remote server\'s port')
     args = parser.parse_args()
     if args.ss_server:
         sys.argv = [sys.argv[0], '-p',args.port, '-s', args.server]
@@ -479,6 +488,18 @@ def get_config():
         sys.argv = [sys.argv[0], '-p',args.port, '-s', args.server,'-ts',args.remote, '-tp',args.local_port]
         maint()
         sys.exit(0)
+    elif args.build_net and args.remote:
+        assert ':' in args.remote 
+        back_sys = sys.argv
+        sys.argv = [sys.argv[0], '-p',args.port, '-s', args.server]
+        Pro = Process(target=main)
+        Pro.daemon = True
+        Pro.start()
+        sys.argv = back_sys
+        log("Build server | and put %s --> %s " % (args.server +":"+str(args.port), args.remote))
+        StartServer(args.remote, args.server + ":" + str(args.port))
+        sys.exit(0)
+
 
 
     if args.local:
@@ -507,6 +528,7 @@ def get_config():
             if '10022' in str(e):
                 raise e
             log("err bye : %s" % str(e) )
+            raise e
 
 
 if __name__ == '__main__':
