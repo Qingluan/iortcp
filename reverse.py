@@ -2,7 +2,7 @@
 # from argparse import ArgumentParser
 import socket
 import traceback
-from socket import SO_REUSEADDR, SO_REUSEPORT, SOL_SOCKET
+from socket import SO_REUSEADDR, SOL_SOCKET
 from socket import AF_INET, SOCK_STREAM
 import sys 
 import select
@@ -10,6 +10,7 @@ import time
 import argparse
 # import pdb
 PY = int(sys.version[0])
+PL= sys.platform[:3]
 if PY == 2:
     class ConnectionResetError(socket.error):pass
     class ConnectionRefusedError(socket.error):pass
@@ -26,9 +27,12 @@ def _extract(r, k):
 
 def create_server(port):
     sock = socket.socket(AF_INET, SOCK_STREAM)
-    sock.bind(('',port))
     sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     #sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
+    if PL == 'win':
+        sock.bind(('localhost',port))
+    else:
+        sock.bind(('',port))
     sock.listen(15)
     while 1:
         s,_ = sock.accept()
@@ -118,6 +122,8 @@ class SenderHandler:
         # pdb.set_trace()
         # all_socks.append(self.lsock)
         all_socks = self._now_handle_socks.values()
+        if len(all_socks) == 0:
+            return
         for s in all_socks:
             if s.fileno() == -1:
                 self.reset = True
@@ -135,7 +141,7 @@ class SenderHandler:
                 #log(" --> remote")
                 self.handle_write(s)
 
-        self.clean
+        self.clean()
         # log("reset : %s" % self.reset,end='\r')
 
     def handle_error(self, sock):
@@ -299,16 +305,17 @@ class WaiterHandler(SenderHandler):
     def handle(self):
         all_socks = self._now_handle_socks.values()
         # log(".")
-        rl,_, _ = select.select( all_socks,[], [], 0.02)
-        # log("..")
+        if len(all_socks) > 0:
+            rl,_, _ = select.select( all_socks,[], [], 0.02)
+            # log("..")
         
-        paris = {}
-        for i,s in enumerate(rl):
-            sock,_ = s.accept()
-            if s == self.sock_r:
-                self.recv_list.append(sock)
-            elif s == self.sock_w:
-                self.listen_list.append(sock)
+            paris = {}
+            for i,s in enumerate(rl):
+                sock,_ = s.accept()
+                if s == self.sock_r:
+                    self.recv_list.append(sock)
+                elif s == self.sock_w:
+                    self.listen_list.append(sock)
 
         # log("..")
         self.handle_check_alive()
@@ -357,6 +364,8 @@ class WaiterHandler(SenderHandler):
                 
     def handle_check_alive(self):
         al_s = self.recv_list
+        if len(al_s) ==0:
+            return
         rl, _ ,_ = select.select(al_s, [], [], 0.001)
         for s in rl:
             d = s.recv(1024)
@@ -383,10 +392,11 @@ class WaiterHandler(SenderHandler):
         sock = socket.socket(AF_INET, SOCK_STREAM)
         sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         # sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
-
-        sock.bind(('',port))
-        
         sock.setblocking(False)
+        if PL == "win":
+            sock.bind(('localhost',port))
+        else:
+            sock.bind(('',port))
         sock.listen(1024)
         return sock
 
@@ -400,7 +410,7 @@ def ConnectServer(lport, rport):
             ic +=1
             R.handle()
     except Exception as e:
-        print(e)
+        raise e
             
         # log("Rebuild server: %d"  % ic, end='\r')
         
@@ -475,6 +485,8 @@ def get_config():
             log(" %s  <---> connect <--> %s" % (port1, port2))
             ConnectServer(int(port1), int(port2))
         except Exception as e:
+            if '10022' in str(e):
+                raise e
             log("err bye : %s" % str(e) )
 
 
