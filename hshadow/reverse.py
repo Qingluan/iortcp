@@ -163,6 +163,9 @@ class SenderHandler:
         
         SenderHandler(addr=self.addr, laddr=self.laddr)
         SenderHandler(addr=self.addr, laddr=self.laddr)
+        SenderHandler(addr=self.addr, laddr=self.laddr)
+        SenderHandler(addr=self.addr, laddr=self.laddr)
+        SenderHandler(addr=self.addr, laddr=self.laddr)
         log("reverse connection: %d"% len(self.__class__.all_sender), end='\r')
         return d
 
